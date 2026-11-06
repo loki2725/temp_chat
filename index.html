@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Arena</title>
+    <style>
+      /* Ultra-minimal, brutalist styling */
+      body {
+        font-family: monospace;
+        margin: 0;
+        padding: 20px;
+        background: #a5a2a2;
+        color: #000;
+      }
+      .hidden {
+        display: none !important;
+      }
+      #join-screen,
+      #chat-screen {
+        max-width: 600px;
+        margin: 40px auto;
+      }
+      input {
+        padding: 10px;
+        width: calc(100% - 90px);
+        border: 2px solid #000;
+        font-family: monospace;
+        box-sizing: border-box;
+      }
+      button {
+        padding: 10px;
+        width: 80px;
+        border: 2px solid #000;
+        background: #000;
+        color: #a5a2a2;
+        cursor: pointer;
+
+        font-family: monospace;
+        font-weight: bold;
+        box-sizing: border-box;
+      }
+      button:hover {
+        background: #a5a2a2;
+        color: #000;
+      }
+      #messages {
+        border: 2px solid #000;
+        height: 500px;
+        overflow-y: auto;
+        padding: 15px;
+        margin-bottom: 10px;
+      }
+      .msg-line {
+        margin-bottom: 8px;
+      }
+      .sender {
+        font-weight: bold;
+      }
+      .system-msg {
+        color: #666;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="join-screen">
+      <h2>join_chat</h2>
+      <div style="display: flex; gap: 10px">
+        <input
+          style="background: #a5a2a2; outline: none"
+          type="text"
+          id="username-input"
+          placeholder="enter username..."
+          autocomplete="off"
+        />
+        <button id="join-btn">ENTER</button>
+      </div>
+    </div>
+
+    <div id="chat-screen" class="hidden">
+      <h2>WebSocket_Prototye</h2>
+      <div id="messages"></div>
+      <div style="display: flex; gap: 10px">
+        <input
+          style="background: #a5a2a2; outline: none"
+          type="text"
+          id="msg-input"
+          placeholder="type a message..."
+          autocomplete="off"
+        />
+        <button id="send-btn">SEND</button>
+      </div>
+    </div>
+
+    <script>
+      // DOM Elements
+      const joinScreen = document.getElementById("join-screen");
+      const chatScreen = document.getElementById("chat-screen");
+      const usernameInput = document.getElementById("username-input");
+      const msgInput = document.getElementById("msg-input");
+      const joinBtn = document.getElementById("join-btn");
+      const sendBtn = document.getElementById("send-btn");
+      const messagesDiv = document.getElementById("messages");
+
+      let username = "";
+
+      // Dynamically handle ngrok's secure HTTPS protocol or local HTTP
+      const wsProtocol =
+        window.location.protocol === "https:" ? "wss://" : "ws://";
+      const connection = new WebSocket(wsProtocol + window.location.host);
+
+      connection.onopen = () => {
+        console.log("Connected to WebSocket server");
+      };
+
+      // --- UI WIRING ---
+
+      joinBtn.addEventListener("click", () => {
+        if (usernameInput.value.trim() === "") return;
+        username = usernameInput.value.trim();
+
+        // Hide join screen, show chat
+        joinScreen.classList.add("hidden");
+        chatScreen.classList.remove("hidden");
+      });
+
+      sendBtn.addEventListener("click", () => {
+        const text = msgInput.value.trim();
+        if (text === "") return;
+
+        // Package the message with the username included
+        const payload = JSON.stringify({
+          sender: username,
+          message: text,
+        });
+
+        connection.send(payload);
+        msgInput.value = ""; // Clear input after sending
+      });
+
+      connection.onmessage = (event) => {
+        // Parse the incoming JSON
+        const data = JSON.parse(event.data);
+
+        // Create the outer wrapper for the message line
+        const msgLine = document.createElement("div");
+        msgLine.className = "msg-line";
+
+        // Create the bold sender span
+        const senderSpan = document.createElement("span");
+        senderSpan.className = "sender";
+
+        // Fallback to "Anonymous" just in case someone connects without setting a name
+        senderSpan.textContent = (data.sender || "Anonymous") + ": ";
+
+        // Create a text node for the actual message content
+        const textNode = document.createTextNode(data.message);
+
+        // Assemble and append to the DOM
+        msgLine.appendChild(senderSpan);
+        msgLine.appendChild(textNode);
+        messagesDiv.appendChild(msgLine);
+
+        // Auto-scroll to the bottom when a new message arrives
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      };
+    </script>
+  </body>
+</html>
